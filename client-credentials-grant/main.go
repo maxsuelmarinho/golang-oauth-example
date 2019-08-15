@@ -2,17 +2,17 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"fmt"
+	"log"
 	"net/http"
-	"time"
+
 	"github.com/google/uuid"
 
-	"gopkg.in/oauth2.v3/manage"
-	"gopkg.in/oauth2.v3/store"
-	"gopkg.in/oauth2.v3/server"
 	"gopkg.in/oauth2.v3/errors"
+	"gopkg.in/oauth2.v3/manage"
 	"gopkg.in/oauth2.v3/models"
+	"gopkg.in/oauth2.v3/server"
+	"gopkg.in/oauth2.v3/store"
 )
 
 func main() {
@@ -44,21 +44,33 @@ func main() {
 		clientID := uuid.New().String()[:8]
 		clientSecret := uuid.New().String()[:8]
 		err := clientStore.Set(clientID, &models.Client{
-			ID: clientID,
+			ID:     clientID,
 			Secret: clientSecret,
-			Domain: "http://localhost:8081"
+			Domain: "http://localhost:8081",
 		})
 		if err != nil {
 			fmt.Println(err.Error())
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[String]string{"client_id": clientId, "client_secret": clientSecret})
+		json.NewEncoder(w).Encode(map[string]string{"client_id": clientID, "client_secret": clientSecret})
 	})
 
-	http.HandleFunc("/protected", ValidateToken(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/protected", validateToken(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Hi, I'm a protected data"))
 	}, srv))
 
 	log.Fatal(http.ListenAndServe(":8081", nil))
+}
+
+func validateToken(h http.HandlerFunc, srv *server.Server) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, err := srv.ValidationBearerToken(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	})
 }
